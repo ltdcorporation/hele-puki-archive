@@ -141,3 +141,4 @@ cython_debug/
 Bot.session
 filesharingbot.txt
 Bot.session-journal
+*.session*
