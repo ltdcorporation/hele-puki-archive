@@ -3,6 +3,8 @@
 from aiohttp import web
 from plugins import web_server
 
+import os
+from dotenv import load_dotenv
 import pyromod.listen
 from pyrogram import Client
 from pyrogram.enums import ParseMode
@@ -12,13 +14,7 @@ from datetime import datetime
 from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, FORCE_SUB_CHANNEL, CHANNEL_ID, PORT
 
 
-ascii_art = """
-░█████╗░░█████╗░██████╗░███████╗██╗░░██╗██████╗░░█████╗░████████╗███████╗
-██╔══██╗██╔══██╗██╔══██╗██╔════╝╚██╗██╔╝██╔══██╗██╔══██╗╚══██╔══╝╚════██║
-██║░░╚═╝██║░░██║██║░░██║█████╗░░░╚███╔╝░██████╦╝██║░░██║░░░██║░░░░░███╔═╝
-██║░░██╗██║░░██║██║░░██║██╔══╝░░░██╔██╗░██╔══██╗██║░░██║░░░██║░░░██╔══╝░░
-╚█████╔╝╚█████╔╝██████╔╝███████╗██╔╝╚██╗██████╦╝╚█████╔╝░░░██║░░░███████╗
-░╚════╝░░╚════╝░╚═════╝░╚══════╝╚═╝░░╚═╝╚═════╝░░╚════╝░░░░╚═╝░░░╚══════╝
+ascii_art = """lusttoDeath
 """
 
 class Bot(Client):
@@ -51,8 +47,23 @@ class Bot(Client):
                 self.LOGGER(__name__).warning(a)
                 self.LOGGER(__name__).warning("Bot can't Export Invite link from Force Sub Channel!")
                 self.LOGGER(__name__).warning(f"Please Double check the FORCE_SUB_CHANNEL value and Make sure Bot is Admin in channel with Invite Users via Link Permission, Current Force Sub Channel Value: {FORCE_SUB_CHANNEL}")
-                self.LOGGER(__name__).info("\nBot Stopped. Join https://t.me/CodeXBotzSupport for support")
+                self.LOGGER(__name__).info("\nBot Stopped. Join https://t.me/LusttoDeath for support")
                 sys.exit()
+
+        # --- Fallback: resolve CHANNEL_ID via username kalau peer id invalid ---
+        from dotenv import load_dotenv
+        import os
+        load_dotenv(".env")
+        chan_user = os.getenv("CHANNEL_USERNAME", "").lstrip("@")
+        if chan_user:
+            try:
+                await self.get_chat(CHANNEL_ID)  # normal coba dulu
+            except Exception:
+                chat = await self.get_chat(chan_user)
+                globals()["CHANNEL_ID"] = chat.id
+                self.LOGGER(__name__).warning(f"CHANNEL_ID fallback => {CHANNEL_ID}")
+
+
         try:
             db_channel = await self.get_chat(CHANNEL_ID)
             self.db_channel = db_channel
@@ -61,13 +72,13 @@ class Bot(Client):
         except Exception as e:
             self.LOGGER(__name__).warning(e)
             self.LOGGER(__name__).warning(f"Make Sure bot is Admin in DB Channel, and Double check the CHANNEL_ID Value, Current Value {CHANNEL_ID}")
-            self.LOGGER(__name__).info("\nBot Stopped. Join https://t.me/CodeXBotzSupport for support")
+            self.LOGGER(__name__).info("\nBot Stopped. Join https://t.me/LusttoDeath for support")
             sys.exit()
 
         self.set_parse_mode(ParseMode.HTML)
-        self.LOGGER(__name__).info(f"Bot Running..!\n\nCreated by \nhttps://t.me/CodeXBotz")
+        self.LOGGER(__name__).info(f"Bot Running..!\n\nCreated by \nhttps://t.me/lusttodeath")
         print(ascii_art)
-        print("""Welcome to CodeXBotz File Sharing Bot""")
+        print("""Welcome to LusttoDeath File Sharing Bot""")
         self.username = usr_bot_me.username
         #web-response
         app = web.AppRunner(await web_server())

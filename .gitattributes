@@ -1,0 +1,4 @@
+.env export-ignore
+.env.* export-ignore
+docker-data/ export-ignore
+

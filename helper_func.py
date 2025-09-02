@@ -10,6 +10,36 @@ from config import FORCE_SUB_CHANNEL, ADMINS, AUTO_DELETE_TIME, AUTO_DEL_SUCCESS
 from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
 from pyrogram.errors import FloodWait
 
+# helper_func.py
+
+from pyrogram.errors import UserNotParticipant, ChatAdminRequired
+
+async def check_force_sub_all(client, user_id: int):
+    """
+    Return list of targets that the user has NOT joined yet.
+    Targets come from config.FORCE_SUB_TARGETS and can be @username or -100... IDs.
+    """
+    try:
+        from config import FORCE_SUB_TARGETS
+    except Exception:
+        FORCE_SUB_TARGETS = []
+
+    not_joined = []
+    for target in FORCE_SUB_TARGETS or []:
+        try:
+            chat = await client.get_chat(target)
+            await client.get_chat_member(chat.id, user_id)
+        except UserNotParticipant:
+            not_joined.append(target)
+        except ChatAdminRequired:
+            # bot isn't admin there; skip but don't crash
+            not_joined.append(target)
+        except Exception:
+            # any other resolve error — treat as not joined to be safe
+            not_joined.append(target)
+
+    return not_joined
+
 async def is_subscribed(filter, client, update):
     if not FORCE_SUB_CHANNEL:
         return True

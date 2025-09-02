@@ -1,4 +1,4 @@
-#(©)CodeXBotz
+#(©)Lusttodeath
 
 import os
 import asyncio
@@ -8,12 +8,45 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 
 from bot import Bot
-from config import ADMINS, FORCE_MSG, START_MSG, CUSTOM_CAPTION, DISABLE_CHANNEL_BUTTON, PROTECT_CONTENT, START_PIC, AUTO_DELETE_TIME, AUTO_DELETE_MSG, JOIN_REQUEST_ENABLE,FORCE_SUB_CHANNEL
+from config import (
+    ADMINS,
+    FORCE_MSG,
+    START_MSG,
+    CUSTOM_CAPTION,
+    DISABLE_CHANNEL_BUTTON,
+    PROTECT_CONTENT,
+    START_PIC,
+    AUTO_DELETE_TIME,
+    AUTO_DELETE_MSG,
+    JOIN_REQUEST_ENABLE,
+    FORCE_SUB_CHANNEL,
+    FORCE_SUB_TARGETS,
+    FORCE_SUB_MESSAGE,
+)
 from helper_func import subscribed,decode, get_messages, delete_file
+from helper_func import check_force_sub_all
 from database.database import add_user, del_user, full_userbase, present_user
 
+async def build_join_keyboard(client: Client, targets):
+    rows = []
+    for target in targets or []:
+        try:
+            chat = await client.get_chat(target)
+            if getattr(chat, "username", None):
+                url = f"https://t.me/{chat.username}"
+            else:
+                try:
+                    url = await client.export_chat_invite_link(chat.id)
+                except Exception:
+                    url = None
+            if url:
+                label = f"Join {getattr(chat, 'title', None) or str(target).lstrip('@')}"
+                rows.append([InlineKeyboardButton(label, url=url)])
+        except Exception:
+            continue
+    return InlineKeyboardMarkup(rows) if rows else None
 
-@Bot.on_message(filters.command('start') & filters.private & subscribed)
+@Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
     id = message.from_user.id
     if not await present_user(id):
@@ -21,6 +54,35 @@ async def start_command(client: Client, message: Message):
             await add_user(id)
         except:
             pass
+    not_joined = await check_force_sub_all(client, user_id=id)
+    if not_joined:
+        kb = await build_join_keyboard(client, not_joined)
+        buttons = []
+        if kb and getattr(kb, "inline_keyboard", None):
+            buttons.extend(kb.inline_keyboard)
+        try:
+            buttons.append([
+                InlineKeyboardButton(
+                    text="Try Again",
+                    url=f"https://t.me/{client.username}?start={message.command[1] if len(message.command) > 1 else ''}"
+                )
+            ])
+        except Exception:
+            pass
+
+        await message.reply(
+            text=FORCE_MSG.format(
+                first=message.from_user.first_name,
+                last=message.from_user.last_name,
+                username=None if not message.from_user.username else '@' + message.from_user.username,
+                mention=message.from_user.mention,
+                id=message.from_user.id
+            ),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            disable_web_page_preview=True,
+            quote=True
+        )
+        return
     text = message.text
     if len(text)>7:
         try:
@@ -161,51 +223,6 @@ REPLY_ERROR = """<code>Use this command as a replay to any telegram message with
 #=====================================================================================##
 
 
-@Bot.on_message(filters.command('start') & filters.private)
-async def not_joined(client: Client, message: Message):
-
-    if bool(JOIN_REQUEST_ENABLE):
-        invite = await client.create_chat_invite_link(
-            chat_id=FORCE_SUB_CHANNEL,
-            creates_join_request=True
-        )
-        ButtonUrl = invite.invite_link
-    else:
-        ButtonUrl = client.invitelink
-
-    buttons = [
-        [
-            InlineKeyboardButton(
-                "Join Channel",
-                url = ButtonUrl)
-        ]
-    ]
-
-    try:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text = 'Try Again',
-                    url = f"https://t.me/{client.username}?start={message.command[1]}"
-                )
-            ]
-        )
-    except IndexError:
-        pass
-
-    await message.reply(
-        text = FORCE_MSG.format(
-                first = message.from_user.first_name,
-                last = message.from_user.last_name,
-                username = None if not message.from_user.username else '@' + message.from_user.username,
-                mention = message.from_user.mention,
-                id = message.from_user.id
-            ),
-        reply_markup = InlineKeyboardMarkup(buttons),
-        quote = True,
-        disable_web_page_preview = True
-    )
-
 @Bot.on_message(filters.command('users') & filters.private & filters.user(ADMINS))
 async def get_users(client: Bot, message: Message):
     msg = await client.send_message(chat_id=message.chat.id, text=WAIT_MSG)
@@ -257,4 +274,3 @@ Unsuccessful: <code>{unsuccessful}</code></b>"""
         msg = await message.reply(REPLY_ERROR)
         await asyncio.sleep(8)
         await msg.delete()
-
